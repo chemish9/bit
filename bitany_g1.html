@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BTC 매수/매도 분석기</title>
+<style>
+/* CSS Reset and Styling */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 15px; }
+.card { background: #1e1e1e; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.title { font-size: 18px; font-weight: 600; }
+.price { font-size: 24px; font-weight: bold; color: #00ff88; transition: color 0.3s; }
+.price.down { color: #ff3366; }
+.signal-box { text-align: center; padding: 20px; border-radius: 8px; margin-bottom: 20px; font-size: 24px; font-weight: bold; transition: all 0.3s; }
+.signal-buy { background-color: rgba(0, 255, 136, 0.2); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.5); }
+.signal-sell { background-color: rgba(255, 51, 102, 0.2); color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.5); }
+.signal-neutral { background-color: rgba(255, 255, 255, 0.1); color: #aaaaaa; border: 1px solid rgba(255, 255, 255, 0.2); }
+.interval-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.interval-card { background: #2a2a2a; border-radius: 8px; padding: 12px; text-align: center; }
+.interval-title { font-size: 14px; color: #aaaaaa; margin-bottom: 8px; }
+.interval-signal { font-size: 16px; font-weight: bold; }
+.chart-container { width: 100%; height: 250px; position: relative; }
+canvas { width: 100%; height: 100%; display: block; }
+.refresh-info { text-align: right; font-size: 12px; color: #666; margin-top: 10px; }
+.legend { display: flex; gap: 10px; font-size: 11px; margin-bottom: 10px; justify-content: center; flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 4px; color: #ccc; }
+.color-box { width: 10px; height: 10px; display: inline-block; border-radius: 2px; }
+.tabs { display: flex; margin-bottom: 15px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #333; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent; color: #888; white-space: nowrap; font-weight: 500; }
+.tab.active { border-bottom-color: #00ff88; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <div class="title">BTC/USDT 실시간 분석</div>
+        <div class="price" id="currentPrice">로딩중...</div>
+    </div>
+</div>
+
+<div class="signal-box signal-neutral" id="mainSignal">
+    분석 데이터 수집 중...
+</div>
+
+<div class="interval-grid" id="intervalSignals">
+    <div class="interval-card"><div class="interval-title">15분 봉</div><div class="interval-signal" id="sig-15m">-</div></div>
+    <div class="interval-card"><div class="interval-title">1시간 봉</div><div class="interval-signal" id="sig-1h">-</div></div>
+    <div class="interval-card"><div class="interval-title">4시간 봉</div><div class="interval-signal" id="sig-4h">-</div></div>
+    <div class="interval-card"><div class="interval-title">1일 봉</div><div class="interval-signal" id="sig-1d">-</div></div>
+</div>
+
+<div class="card">
+    <div class="tabs" id="chartTabs">
+        <div class="tab active" data-interval="15m">15분</div>
+        <div class="tab" data-interval="1h">1시간</div>
+        <div class="tab" data-interval="4h">4시간</div>
+        <div class="tab" data-interval="1d">1일</div>
+    </div>
+    <div class="legend">
+        <span><div class="color-box" style="background:#ffffff;"></div>가격</span>
+        <span><div class="color-box" style="background:#00ff88;"></div>MA20</span>
+        <span><div class="color-box" style="background:#ff3366;"></div>RSI(14)</span>
+        <span><div class="color-box" style="background:#ff9900;"></div>MACD</span>
+    </div>
+    <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+    </div>
+</div>
+
+<div class="refresh-info" id="refreshTime">마지막 업데이트: -</div>
+
+<script>
+// Logic
+const symbol = 'BTCUSDT';
+const intervals = ['15m', '1h', '4h', '1d'];
+let chartData = {};
+let currentActiveInterval = '15m';
+let currentPriceValue = 0;
+
+// Indicators math
+function calculateSMA(data, period) {
+    let sma = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+            sma.push(null);
+            continue;
+        }
+        let sum = 0;
+        for (let j = 0; j < period; j++) sum += data[i - j];
+        sma.push(sum / period);
+    }
+    return sma;
+}
+
+function calculateEMA(data, period) {
+    let ema = [];
+    let k = 2 / (period + 1);
+    for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+            ema.push(data[0]);
+        } else {
+            ema.push(data[i] * k + ema[i - 1] * (1 - k));
+        }
+    }
+    return ema;
+}
+
+function calculateRSI(data, period = 14) {
+    let rsi = [];
+    let gains = 0, losses = 0;
+
+    for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+            rsi.push(null);
+            continue;
+        }
+        let change = data[i] - data[i - 1];
+        if (change > 0) gains += change;
+        else losses -= change;
+
+        if (i < period) {
+            rsi.push(null);
+        } else if (i === period) {
+            gains /= period;
+            losses /= period;
+            let rs = gains / (losses === 0 ? 1 : losses);
+            rsi.push(100 - (100 / (1 + rs)));
+        } else {
+            let lastChange = data[i] - data[i - 1];
+            let currentGain = lastChange > 0 ? lastChange : 0;
+            let currentLoss = lastChange < 0 ? -lastChange : 0;
+            gains = (gains * (period - 1) + currentGain) / period;
+            losses = (losses * (period - 1) + currentLoss) / period;
+            let rs = gains / (losses === 0 ? 1 : losses);
+            rsi.push(100 - (100 / (1 + rs)));
+        }
+    }
+    return rsi;
+}
+
+function calculateMACD(data, shortP = 12, longP = 26, signalP = 9) {
+    let shortEMA = calculateEMA(data, shortP);
+    let longEMA = calculateEMA(data, longP);
+    let macd = [];
+    for (let i = 0; i < data.length; i++) macd.push(shortEMA[i] - longEMA[i]);
+    let signal = calculateEMA(macd, signalP);
+    return { macd, signal };
+}
+
+async function fetchKlineData(interval) {
+    try {
+        const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`);
+        const data = await res.json();
+        const closes = data.map(d => parseFloat(d[4]));
+        const highs = data.map(d => parseFloat(d[2]));
+        const lows = data.map(d => parseFloat(d[3]));
+        const timestamps = data.map(d => d[0]);
+        return { closes, highs, lows, timestamps };
+    } catch (e) {
+        console.error('Error fetching data for ' + interval, e);
+        return null;
+    }
+}
+
+async function fetchCurrentPrice() {
+    try {
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+        const data = await res.json();
+        const newPrice = parseFloat(data.price);
+        const priceEl = document.getElementById('currentPrice');
+        if (newPrice < currentPriceValue && currentPriceValue !== 0) {
+            priceEl.className = 'price down';
+        } else {
+            priceEl.className = 'price';
+        }
+        priceEl.innerText = '$' + newPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        currentPriceValue = newPrice;
+    } catch (e) {
+        console.error('Error fetching price', e);
+    }
+}
+
+function analyzeInterval(data) {
+    const closes = data.closes;
+    const ma20 = calculateSMA(closes, 20);
+    const rsi14 = calculateRSI(closes, 14);
+    const macdData = calculateMACD(closes);
+
+    const currentPrice = closes[closes.length - 1];
+    const currentMA = ma20[ma20.length - 1];
+    const currentRSI = rsi14[rsi14.length - 1];
+    const currentMACD = macdData.macd[macdData.macd.length - 1];
+    const currentSignal = macdData.signal[macdData.signal.length - 1];
+
+    let score = 0;
+    
+    // RSI 보조지표
+    if (currentRSI < 30) score += 2; // 과매도 -> 매수 시그널
+    else if (currentRSI > 70) score -= 2; // 과매수 -> 매도 시그널
+    else if (currentRSI > 50) score += 1; // 강세
+    else score -= 1; // 약세
+
+    // MACD 보조지표
+    if (currentMACD > currentSignal) score += 1; // 골든크로스 / 상승세
+    else score -= 1; // 데드크로스 / 하락세
+
+    // 이동평균선(MA20)
+    if (currentPrice > currentMA) score += 1; // 추세 상방
+    else score -= 1; // 추세 하방
+
+    let text = '관망';
+    let colorClass = 'signal-neutral';
+    if (score >= 3) { text = '강력 매수'; colorClass = 'signal-buy'; }
+    else if (score > 0) { text = '매수 우위'; colorClass = 'signal-buy'; }
+    else if (score <= -3) { text = '강력 매도'; colorClass = 'signal-sell'; }
+    else if (score < 0) { text = '매도 우위'; colorClass = 'signal-sell'; }
+
+    return { score, text, colorClass, ma20, rsi14, macdData };
+}
+
+function drawChart(interval) {
+    const canvas = document.getElementById('mainChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Device Pixel Ratio for sharp rendering on mobile
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    
+    const w = rect.width;
+    const h = rect.height;
+    
+    ctx.clearRect(0, 0, w, h);
+    
+    const d = chartData[interval];
+    if (!d) return;
+
+    const closes = d.raw.closes;
+    const ma20 = d.analysis.ma20;
+    const rsi = d.analysis.rsi14;
+    const macd = d.analysis.macdData.macd;
+    const signalLine = d.analysis.macdData.signal;
+    
+    // Limits
+    const minPrice = Math.min(...closes) * 0.995;
+    const maxPrice = Math.max(...closes) * 1.005;
+    
+    const drawLine = (dataArray, color, minV, maxV, heightRatio, yOffsetRatio, smooth = false) => {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        let started = false;
+        
+        const stepX = w / (Math.max(1, dataArray.length - 1));
+        const sectionH = h * heightRatio;
+        const offsetY = h * yOffsetRatio;
+        
+        for (let i = 0; i < dataArray.length; i++) {
+            const val = dataArray[i];
+            if (val === null || isNaN(val)) continue;
+            
+            const x = i * stepX;
+            const normY = (val - minV) / (maxV - minV || 1);
+            const y = offsetY + sectionH - (normY * sectionH);
+            
+            if (!started) {
+                ctx.moveTo(x, y);
+                started = true;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+    };
+
+    // 1. Price Chart (Top 55%)
+    drawLine(closes, '#ffffff', minPrice, maxPrice, 0.55, 0);
+    drawLine(ma20, '#00ff88', minPrice, maxPrice, 0.55, 0);
+    
+    // 2. RSI Chart (Middle 20%)
+    const rsiOffset = 0.58;
+    const rsiH = 0.2;
+    drawLine(rsi, '#ff3366', 0, 100, rsiH, rsiOffset);
+    
+    // RSI 30/70 reference lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.setLineDash([4, 4]);
+    const rsiBaseY = h * rsiOffset;
+    const rsiActualH = h * rsiH;
+    ctx.beginPath(); ctx.moveTo(0, rsiBaseY + rsiActualH - (30/100*rsiActualH)); ctx.lineTo(w, rsiBaseY + rsiActualH - (30/100*rsiActualH)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, rsiBaseY + rsiActualH - (70/100*rsiActualH)); ctx.lineTo(w, rsiBaseY + rsiActualH - (70/100*rsiActualH)); ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // 3. MACD Chart (Bottom 20%)
+    const validMacd = macd.filter(n => n !== null && !isNaN(n));
+    const validSig = signalLine.filter(n => n !== null && !isNaN(n));
+    const maxMacd = Math.max(...validMacd, ...validSig) * 1.2;
+    const minMacd = Math.min(...validMacd, ...validSig) * 1.2;
+    const macdOffset = 0.8;
+    const macdH = 0.2;
+
+    // Center Zero line for MACD
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    const zeroNormY = (0 - minMacd) / (maxMacd - minMacd || 1);
+    const zeroY = h * macdOffset + (h * macdH) - (zeroNormY * (h * macdH));
+    ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
+
+    drawLine(macd, '#ff9900', minMacd, maxMacd, macdH, macdOffset);
+    drawLine(signalLine, '#00ccff', minMacd, maxMacd, macdH, macdOffset);
+}
+
+async function updateAll() {
+    await fetchCurrentPrice();
+    
+    let totalScore = 0;
+    
+    for (let intv of intervals) {
+        const data = await fetchKlineData(intv);
+        if (data) {
+            const analysis = analyzeInterval(data);
+            chartData[intv] = { raw: data, analysis };
+            
+            totalScore += analysis.score;
+            
+            const el = document.getElementById(`sig-${intv}`);
+            el.innerText = analysis.text;
+            el.style.color = analysis.colorClass.includes('buy') ? '#00ff88' : (analysis.colorClass.includes('sell') ? '#ff3366' : '#aaaaaa');
+        }
+    }
+    
+    // Main overall signal aggregation
+    let mainText = '관망 / 방향성 탐색';
+    let mainColorClass = 'signal-neutral';
+    if (totalScore >= 6) { mainText = '🚀 강력 매수 추천'; mainColorClass = 'signal-buy'; }
+    else if (totalScore > 0) { mainText = '📈 상승 추세 (매수 우위)'; mainColorClass = 'signal-buy'; }
+    else if (totalScore <= -6) { mainText = '💣 강력 매도 추천'; mainColorClass = 'signal-sell'; }
+    else if (totalScore < 0) { mainText = '📉 하락 추세 (매도 우위)'; mainColorClass = 'signal-sell'; }
+    
+    const mainBox = document.getElementById('mainSignal');
+    mainBox.className = `signal-box ${mainColorClass}`;
+    mainBox.innerText = mainText;
+    
+    // Refresh Time
+    const now = new Date();
+    document.getElementById('refreshTime').innerText = `마지막 업데이트: ${now.toLocaleTimeString()}`;
+    
+    drawChart(currentActiveInterval);
+}
+
+// Event Listeners
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        currentActiveInterval = e.target.getAttribute('data-interval');
+        drawChart(currentActiveInterval);
+    });
+});
+
+window.addEventListener('resize', () => {
+    drawChart(currentActiveInterval);
+});
+
+// Start loop
+updateAll();
+setInterval(updateAll, 30000); // 30 sec trigger
+
+</script>
+</body>
+</html>

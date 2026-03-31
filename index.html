@@ -2,510 +2,588 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>통합 코인 매수/매도 분석기</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>비트코인 매매 등대</title>
 <style>
-/* CSS Reset and Styling */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 15px; }
-.card { background: #1e1e1e; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.title { font-size: 18px; font-weight: 600; }
-.price { font-size: 24px; font-weight: bold; color: #00ff88; transition: color 0.3s; }
-.price.down { color: #ff3366; }
-.signal-box { text-align: center; padding: 20px; border-radius: 8px; margin-bottom: 20px; font-size: 24px; font-weight: bold; transition: all 0.3s; }
-.signal-buy { background-color: rgba(0, 255, 136, 0.2); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.5); }
-.signal-sell { background-color: rgba(255, 51, 102, 0.2); color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.5); }
-.signal-neutral { background-color: rgba(255, 255, 255, 0.1); color: #aaaaaa; border: 1px solid rgba(255, 255, 255, 0.2); }
-.interval-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-.interval-card { background: #2a2a2a; border-radius: 8px; padding: 12px; text-align: center; }
-.interval-title { font-size: 14px; color: #aaaaaa; margin-bottom: 8px; }
-.interval-signal { font-size: 16px; font-weight: bold; }
-.chart-container { width: 100%; height: 280px; position: relative; }
-canvas { width: 100%; height: 100%; display: block; }
-.refresh-info { text-align: right; font-size: 12px; color: #666; margin-top: 10px; }
-.legend { display: flex; gap: 10px; font-size: 11px; margin-bottom: 10px; justify-content: center; flex-wrap: wrap; }
-.legend span { display: flex; align-items: center; gap: 4px; color: #ccc; }
-.color-box { width: 10px; height: 10px; display: inline-block; border-radius: 2px; }
-.tabs { display: flex; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #333; margin-bottom: 15px; }
-.tabs::-webkit-scrollbar { display: none; }
-.tab { padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent; color: #888; white-space: nowrap; font-weight: 500; }
-.tab.active { border-bottom-color: #00ff88; color: #fff; }
-.coin-tabs { justify-content: space-around; background: #2a2a2a; border-radius: 8px 8px 0 0; margin-bottom: 0; padding-top: 5px; }
-.coin-tabs .tab { width: 50%; text-align: center; }
+:root {
+  --bg: #060c18;
+  --bg2: #0b1525;
+  --bg3: #111e35;
+  --border: #1c2e4a;
+  --text: #b8cfe8;
+  --muted: #4e6a90;
+  --gold: #f5c518;
+  --buy: #00cc88;
+  --buy-dim: rgba(0,204,136,0.12);
+  --sell: #ff5252;
+  --sell-dim: rgba(255,82,82,0.12);
+  --wait: #f5a623;
+  --wait-dim: rgba(245,166,35,0.12);
+}
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', -apple-system, sans-serif; overflow-x: hidden; }
+
+/* Stars */
+#stars { position: fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+
+/* Layout */
+.wrap { position:relative; z-index:1; max-width:1140px; margin:0 auto; padding:28px 16px 56px; }
+
+/* ── Header ── */
+.hdr { text-align:center; margin-bottom:36px; }
+.lh-beam { transform-origin:40px 30px; animation:sweep 4s ease-in-out infinite alternate; }
+@keyframes sweep { from{transform:rotate(-28deg);opacity:.9} to{transform:rotate(28deg);opacity:.25} }
+.lh-glow { animation:glow 2s ease-in-out infinite; }
+@keyframes glow { 0%,100%{filter:drop-shadow(0 0 8px #ffd700)} 50%{filter:drop-shadow(0 0 2px #ffd700)} }
+.title { font-size:1.65rem; font-weight:800; color:var(--gold); letter-spacing:-.5px; margin-top:8px; }
+.subtitle { font-size:.78rem; color:var(--muted); margin-top:3px; margin-bottom:22px; }
+.price-row { display:flex; align-items:baseline; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+#priceMain { font-size:2.8rem; font-weight:800; color:#fff; letter-spacing:-1.5px; font-variant-numeric:tabular-nums; }
+.pchip { font-size:.95rem; font-weight:700; padding:3px 10px; border-radius:7px; }
+.pchip.up   { background:var(--buy-dim); color:var(--buy); border:1px solid rgba(0,204,136,.25); }
+.pchip.down { background:var(--sell-dim); color:var(--sell); border:1px solid rgba(255,82,82,.25); }
+.pchip.flat { background:rgba(78,106,144,.1); color:var(--muted); border:1px solid rgba(78,106,144,.2); }
+.update-row { font-size:.76rem; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+.btn-refresh { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:3px 12px;
+  border-radius:7px; font-size:.76rem; cursor:pointer; transition:all .2s; }
+.btn-refresh:hover { background:var(--border); color:#fff; }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border);
+  border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── Grid ── */
+.tf-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+@media(max-width:820px) { .tf-grid{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:480px) { .tf-grid{grid-template-columns:1fr} }
+
+/* ── Card ── */
+.tf-card { background:var(--bg2); border:1px solid var(--border); border-radius:16px; overflow:hidden;
+  transition:box-shadow .35s, border-color .35s; }
+.tf-card.signal-BUY  { border-color:rgba(0,204,136,.45); box-shadow:0 0 26px rgba(0,204,136,.1); }
+.tf-card.signal-SELL { border-color:rgba(255,82,82,.45);  box-shadow:0 0 26px rgba(255,82,82,.1); }
+.tf-card.signal-WAIT { border-color:rgba(245,166,35,.35); box-shadow:0 0 20px rgba(245,166,35,.07); }
+
+.card-head { padding:14px 16px 10px; border-bottom:1px solid var(--border); }
+.tf-label { font-size:.68rem; font-weight:700; color:var(--muted); letter-spacing:.8px; text-transform:uppercase; margin-bottom:5px; }
+.card-price { font-size:1.2rem; font-weight:700; color:#deeeff; font-variant-numeric:tabular-nums; }
+
+.card-body { padding:10px 16px 6px; }
+.ind-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0;
+  border-bottom:1px solid rgba(28,46,74,.6); }
+.ind-row:last-child { border-bottom:none; }
+.ind-left { flex:1; }
+.ind-name { font-size:.78rem; color:var(--muted); font-weight:500; display:block; }
+.mini-bar-wrap { width:72px; height:3px; background:rgba(78,106,144,.18); border-radius:2px; margin-top:4px; overflow:hidden; }
+.mini-bar { height:100%; border-radius:2px; transition:width .5s; }
+.ind-right { display:flex; align-items:center; gap:8px; }
+.ind-val { font-size:.74rem; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.badge { font-size:.65rem; font-weight:800; padding:2px 7px; border-radius:5px; letter-spacing:.3px; white-space:nowrap; }
+.badge-BUY     { background:var(--buy-dim); color:var(--buy); border:1px solid rgba(0,204,136,.3); }
+.badge-SELL    { background:var(--sell-dim); color:var(--sell); border:1px solid rgba(255,82,82,.3); }
+.badge-NEUTRAL { background:rgba(78,106,144,.1); color:var(--muted); border:1px solid rgba(78,106,144,.25); }
+
+.card-foot { padding:12px 16px 14px; border-top:1px solid var(--border); }
+.sig-box { text-align:center; padding:9px 12px; border-radius:10px; }
+.sig-box.BUY  { background:var(--buy-dim);  border:1px solid rgba(0,204,136,.3); }
+.sig-box.SELL { background:var(--sell-dim); border:1px solid rgba(255,82,82,.3); }
+.sig-box.WAIT { background:var(--wait-dim); border:1px solid rgba(245,166,35,.3); }
+.sig-lbl { font-size:.95rem; font-weight:800; letter-spacing:.3px; }
+.sig-box.BUY  .sig-lbl { color:var(--buy); }
+.sig-box.SELL .sig-lbl { color:var(--sell); }
+.sig-box.WAIT .sig-lbl { color:var(--wait); }
+.sig-score { font-size:.7rem; margin-top:3px; opacity:.75; }
+
+/* ── Info section ── */
+.info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-bottom:24px; }
+@media(max-width:640px) { .info-grid{grid-template-columns:1fr} }
+.info-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:18px; }
+.info-title { font-size:.82rem; font-weight:700; color:var(--text); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+.info-item { font-size:.77rem; color:var(--text); padding:5px 0;
+  display:flex; align-items:flex-start; gap:8px; border-bottom:1px solid rgba(28,46,74,.5); line-height:1.5; }
+.info-item:last-child { border-bottom:none; }
+.info-num { color:var(--muted); font-size:.72rem; min-width:14px; padding-top:1px; }
+
+/* ── Error ── */
+.err-box { background:var(--sell-dim); border:1px solid rgba(255,82,82,.3); border-radius:12px;
+  padding:14px; text-align:center; color:var(--sell); font-size:.82rem; margin-bottom:18px; display:none; }
+
+/* ── Legend ── */
+.legend { text-align:center; font-size:.75rem; color:var(--muted); margin-bottom:26px; }
+.dot { display:inline-block; width:7px; height:7px; border-radius:50%; vertical-align:middle; margin:0 3px; }
+
+/* ── Footer ── */
+.footer { text-align:center; font-size:.72rem; color:var(--muted);
+  padding-top:18px; border-top:1px solid var(--border); line-height:2; }
+
+/* Skeleton shimmer */
+.ske { background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 50%,var(--bg2) 75%);
+  background-size:200% 100%; animation:shim 1.5s infinite; border-radius:6px; }
+@keyframes shim { from{background-position:-200% 0} to{background-position:200% 0} }
 </style>
 </head>
 <body>
+<canvas id="stars"></canvas>
+<div class="wrap">
 
-<div class="tabs coin-tabs" id="coinTabs">
-    <div class="tab active" data-symbol="BTCUSDT" data-exchange="binance" data-name="BTC">BTC (비트코인)</div>
-    <div class="tab" data-symbol="SIREN" data-exchange="cryptocompare" data-name="SIREN">SIREN (사이렌)</div>
-</div>
+  <!-- Header -->
+  <div class="hdr">
+    <svg viewBox="0 0 80 80" width="78" height="78">
+      <!-- beam -->
+      <g class="lh-beam">
+        <polygon points="40,30 4,80 76,80" fill="rgba(245,197,24,.07)"/>
+        <polygon points="40,30 10,80 70,80" fill="rgba(245,197,24,.05)"/>
+      </g>
+      <!-- body -->
+      <polygon points="27,72 31,30 49,30 53,72" fill="#1a2c48"/>
+      <!-- stripes -->
+      <polygon points="27.5,54 30,44 50,44 52.5,54" fill="#2d1f50" opacity=".45"/>
+      <polygon points="28.5,65 30.5,58 49.5,58 51.5,65" fill="#1f2d50" opacity=".3"/>
+      <!-- lantern room -->
+      <rect x="28" y="20" width="24" height="12" rx="2" fill="#1a2c48" stroke="#2a4a80" stroke-width=".6"/>
+      <!-- cap -->
+      <polygon points="24,20 40,6 56,20" fill="#1a2c48" stroke="#2a4a80" stroke-width=".5"/>
+      <!-- glow halo -->
+      <circle cx="40" cy="26" r="11" fill="rgba(255,215,0,.07)"/>
+      <!-- beacon -->
+      <g class="lh-glow"><circle cx="40" cy="26" r="5.5" fill="#ffd700"/></g>
+      <!-- window -->
+      <rect x="36" y="36" width="8" height="6" rx="1" fill="rgba(255,215,0,.18)"/>
+      <!-- door -->
+      <rect x="35" y="57" width="10" height="15" rx="5 5 0 0" fill="#060c18"/>
+      <!-- base -->
+      <rect x="22" y="72" width="36" height="5" rx="2" fill="#1a2c48"/>
+      <!-- waves -->
+      <path d="M10,77 Q20,74 30,77 Q40,80 50,77 Q60,74 70,77" fill="none" stroke="#1c3a60" stroke-width="1"/>
+    </svg>
 
-<div class="card" style="border-radius: 0 0 12px 12px; margin-top: -1px;">
-    <div class="header">
-        <div class="title" id="coinTitle">BTC/USDT 실시간 분석</div>
-        <div class="price" id="currentPrice">로딩중...</div>
+    <div class="title">비트코인 매매 등대</div>
+    <div class="subtitle">Bitcoin Trading Lighthouse &nbsp;·&nbsp; MA · RSI · MACD · 볼린저 종합 신호</div>
+
+    <div class="price-row">
+      <div id="priceMain">—</div>
+      <div id="priceChange" class="pchip flat">—</div>
     </div>
-</div>
-
-<div class="signal-box signal-neutral" id="mainSignal">
-    분석 데이터 수집 중...
-</div>
-
-<div class="interval-grid" id="intervalSignals">
-    <div class="interval-card"><div class="interval-title">15분 봉</div><div class="interval-signal" id="sig-15m">-</div></div>
-    <div class="interval-card"><div class="interval-title">1시간 봉</div><div class="interval-signal" id="sig-1h">-</div></div>
-    <div class="interval-card"><div class="interval-title">4시간 봉</div><div class="interval-signal" id="sig-4h">-</div></div>
-    <div class="interval-card"><div class="interval-title">1일 봉</div><div class="interval-signal" id="sig-1d">-</div></div>
-</div>
-
-<div class="card">
-    <div class="tabs" id="chartTabs">
-        <div class="tab active" data-interval="15m">15분</div>
-        <div class="tab" data-interval="1h">1시간</div>
-        <div class="tab" data-interval="4h">4시간</div>
-        <div class="tab" data-interval="1d">1일</div>
+    <div class="update-row">
+      <span id="updateTime">데이터 불러오는 중...</span>
+      <button class="btn-refresh" onclick="doRefresh()">↻ 새로고침</button>
+      <span id="countdown"></span>
     </div>
-    <div class="legend">
-        <span><div class="color-box" style="background:#ffffff;"></div>가격</span>
-        <span><div class="color-box" style="background:#00ff88;"></div>MA20</span>
-        <span><div class="color-box" style="background:#ff3366;"></div>RSI(14)</span>
-        <span><div class="color-box" style="background:#ff9900;"></div>MACD</span>
-    </div>
-    <div class="chart-container">
-        <canvas id="mainChart"></canvas>
-    </div>
-</div>
+  </div>
 
-<div class="refresh-info" id="refreshTime">마지막 업데이트: -</div>
+  <div class="err-box" id="errBox"></div>
+
+  <!-- Timeframe cards -->
+  <div class="tf-grid">
+    <div class="tf-card" id="card-15m"></div>
+    <div class="tf-card" id="card-1h"></div>
+    <div class="tf-card" id="card-4h"></div>
+    <div class="tf-card" id="card-1d"></div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-title"><span>📋</span> 매수 전 체크리스트</div>
+      <div class="info-item"><span class="info-num">1</span><span>현재가 &gt; MA20 (20기간 이동평균) 위에 있나?</span></div>
+      <div class="info-item"><span class="info-num">2</span><span>RSI 30 이하 = 과매도 = 반등 기대 국면인가?</span></div>
+      <div class="info-item"><span class="info-num">3</span><span>MACD선이 시그널선 위로 올라섰나? (골든크로스)</span></div>
+      <div class="info-item"><span class="info-num">4</span><span>가격이 볼린저 하단밴드 근처 or 터치했나?</span></div>
+    </div>
+    <div class="info-card">
+      <div class="info-title"><span>⚡</span> 손실 관리 원칙</div>
+      <div class="info-item" style="color:var(--sell)"><span class="info-num">●</span><span>손절 라인: 매수가 기준 <strong>-5~7%</strong> 시 무조건 손절</span></div>
+      <div class="info-item" style="color:var(--buy)"><span class="info-num">●</span><span>익절 목표: <strong>+10~15%</strong> 도달 시 절반 이상 매도</span></div>
+      <div class="info-item"><span class="info-num">●</span><span>3개 이상 신호 일치 시 → 행동 / 미달 시 → 무조건 대기</span></div>
+      <div class="info-item" style="color:var(--muted)"><span class="info-num">※</span><span>본 신호는 참고용이며 투자 책임은 본인에게 있습니다</span></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--buy)"></span> 매수 신호</span>&ensp;
+    <span><span class="dot" style="background:var(--sell)"></span> 매도 신호</span>&ensp;
+    <span><span class="dot" style="background:var(--wait)"></span> 대기 / 중립</span>&ensp;·&ensp;
+    3개 이상 일치 시 행동 신호 발생
+  </div>
+
+  <div class="footer">
+    데이터 출처: Binance API (BTCUSDT) &nbsp;·&nbsp; 60초마다 자동 갱신<br>
+    본 정보는 투자 참고용이며, 투자 손실에 대한 책임은 본인에게 있습니다.
+  </div>
+</div>
 
 <script>
-// Logic
-let currentExchange = 'binance';
-let currentSymbol = 'BTCUSDT';
-let coinName = 'BTC';
+// ═══════════════════════════════════════════
+//  Stars animation
+// ═══════════════════════════════════════════
+(function () {
+  const cvs = document.getElementById('stars');
+  const ctx = cvs.getContext('2d');
+  let stars = [];
 
-const intervals = ['15m', '1h', '4h', '1d'];
-let chartData = {};
-let currentActiveInterval = '15m';
-let currentPriceValue = 0;
-let refreshTimer = null;
+  function resize() {
+    cvs.width = window.innerWidth;
+    cvs.height = window.innerHeight;
+    stars = Array.from({ length: 140 }, () => ({
+      x: Math.random() * cvs.width,
+      y: Math.random() * cvs.height,
+      r: Math.random() * 1.1 + 0.15,
+      base: Math.random() * 0.65 + 0.1,
+      freq: Math.random() * 0.0008 + 0.0002,
+      phase: Math.random() * Math.PI * 2,
+    }));
+  }
 
-// Indicators math
-function calculateSMA(data, period) {
-    let sma = [];
-    for (let i = 0; i < data.length; i++) {
-        if (i < period - 1) {
-            sma.push(null);
-            continue;
-        }
-        let sum = 0;
-        for (let j = 0; j < period; j++) sum += data[i - j];
-        sma.push(sum / period);
+  function draw(t) {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    for (const s of stars) {
+      const a = s.base * (0.5 + 0.5 * Math.sin(t * s.freq + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180,210,255,${a})`;
+      ctx.fill();
     }
-    return sma;
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(draw);
+})();
+
+// ═══════════════════════════════════════════
+//  Indicator math
+// ═══════════════════════════════════════════
+function sma(data, p) {
+  const r = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i < p - 1) { r.push(null); continue; }
+    let s = 0; for (let j = i - p + 1; j <= i; j++) s += data[j];
+    r.push(s / p);
+  }
+  return r;
 }
 
-function calculateEMA(data, period) {
-    let ema = [];
-    let k = 2 / (period + 1);
-    for (let i = 0; i < data.length; i++) {
-        if (i === 0) {
-            ema.push(data[0]);
-        } else {
-            ema.push(data[i] * k + ema[i - 1] * (1 - k));
-        }
+function ema(data, p) {
+  const r = new Array(data.length).fill(null);
+  const k = 2 / (p + 1);
+  let sum = 0, cnt = 0, prev = null;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    if (v === null || v === undefined || isNaN(v)) continue;
+    if (prev === null) {
+      sum += v; cnt++;
+      if (cnt === p) { prev = sum / p; r[i] = prev; }
+    } else {
+      prev = v * k + prev * (1 - k);
+      r[i] = prev;
     }
-    return ema;
+  }
+  return r;
 }
 
-function calculateRSI(data, period = 14) {
-    let rsi = [];
-    let gains = 0, losses = 0;
-
-    for (let i = 0; i < data.length; i++) {
-        if (i === 0) {
-            rsi.push(null);
-            continue;
-        }
-        let change = data[i] - data[i - 1];
-        if (change > 0) gains += change;
-        else losses -= change;
-
-        if (i < period) {
-            rsi.push(null);
-        } else if (i === period) {
-            gains /= period;
-            losses /= period;
-            let rs = gains / (losses === 0 ? 1 : losses);
-            rsi.push(100 - (100 / (1 + rs)));
-        } else {
-            let lastChange = data[i] - data[i - 1];
-            let currentGain = lastChange > 0 ? lastChange : 0;
-            let currentLoss = lastChange < 0 ? -lastChange : 0;
-            gains = (gains * (period - 1) + currentGain) / period;
-            losses = (losses * (period - 1) + currentLoss) / period;
-            let rs = gains / (losses === 0 ? 1 : losses);
-            rsi.push(100 - (100 / (1 + rs)));
-        }
-    }
-    return rsi;
+function rsi(closes, p = 14) {
+  const r = new Array(closes.length).fill(null);
+  if (closes.length < p + 1) return r;
+  let ag = 0, al = 0;
+  for (let i = 1; i <= p; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) ag += d; else al += Math.abs(d);
+  }
+  ag /= p; al /= p;
+  r[p] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  for (let i = p + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    const g = d > 0 ? d : 0, l = d < 0 ? -d : 0;
+    ag = (ag * (p - 1) + g) / p;
+    al = (al * (p - 1) + l) / p;
+    r[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  }
+  return r;
 }
 
-function calculateMACD(data, shortP = 12, longP = 26, signalP = 9) {
-    let shortEMA = calculateEMA(data, shortP);
-    let longEMA = calculateEMA(data, longP);
-    let macd = [];
-    for (let i = 0; i < data.length; i++) macd.push(shortEMA[i] - longEMA[i]);
-    let signal = calculateEMA(macd, signalP);
-    return { macd, signal };
+function macd(closes) {
+  const e12 = ema(closes, 12);
+  const e26 = ema(closes, 26);
+  const line = closes.map((_, i) => e12[i] !== null && e26[i] !== null ? e12[i] - e26[i] : null);
+  const sig  = ema(line, 9);
+  const hist = line.map((m, i) => m !== null && sig[i] !== null ? m - sig[i] : null);
+  return { line, sig, hist };
 }
 
-// Data fetching
-async function fetchKlineData(interval) {
-    try {
-        let closes, highs, lows, timestamps;
-        
-        if (currentExchange === 'binance') {
-            const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${currentSymbol}&interval=${interval}&limit=100`);
-            if (!res.ok) throw new Error('API limits or symbol not found');
-            const data = await res.json();
-            closes = data.map(d => parseFloat(d[4]));
-            highs = data.map(d => parseFloat(d[2]));
-            lows = data.map(d => parseFloat(d[3]));
-            timestamps = data.map(d => d[0]);
-        } else if (currentExchange === 'cryptocompare') {
-            let url = '';
-            if (interval === '15m') url = `https://min-api.cryptocompare.com/data/v2/histominute?fsym=${currentSymbol}&tsym=USD&limit=100&aggregate=15`;
-            else if (interval === '1h') url = `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${currentSymbol}&tsym=USD&limit=100`;
-            else if (interval === '4h') url = `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${currentSymbol}&tsym=USD&limit=100&aggregate=4`;
-            else if (interval === '1d') url = `https://min-api.cryptocompare.com/data/v2/histoday?fsym=${currentSymbol}&tsym=USD&limit=100`;
-            
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('API limits or symbol not found');
-            const result = await res.json();
-            if (result.Response === 'Error') throw new Error(result.Message);
-            const data = result.Data.Data;
-            closes = data.map(d => parseFloat(d.close));
-            highs = data.map(d => parseFloat(d.high));
-            lows = data.map(d => parseFloat(d.low));
-            timestamps = data.map(d => d.time);
-        }
-        
-        return { closes, highs, lows, timestamps };
-    } catch (e) {
-        console.error('Error fetching data for ' + interval, e);
-        return null;
-    }
+function bollinger(closes, p = 20, k = 2) {
+  const mid = sma(closes, p);
+  const up = [], lo = [];
+  for (let i = 0; i < closes.length; i++) {
+    if (mid[i] === null) { up.push(null); lo.push(null); continue; }
+    const sl = closes.slice(i - p + 1, i + 1);
+    const std = Math.sqrt(sl.reduce((a, x) => a + (x - mid[i]) ** 2, 0) / p);
+    up.push(mid[i] + k * std);
+    lo.push(mid[i] - k * std);
+  }
+  return { mid, up, lo };
 }
 
-async function fetchCurrentPrice() {
-    try {
-        let newPrice = 0;
-        
-        if (currentExchange === 'binance') {
-            const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${currentSymbol}`);
-            if (!res.ok) throw new Error('Symbol price not found');
-            const data = await res.json();
-            newPrice = parseFloat(data.price);
-        } else if (currentExchange === 'cryptocompare') {
-            const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentSymbol}&tsyms=USD`);
-            if (!res.ok) throw new Error('Symbol price not found');
-            const data = await res.json();
-            if (!data.USD) throw new Error('Symbol price not found in response');
-            newPrice = parseFloat(data.USD);
-        }
+// ═══════════════════════════════════════════
+//  Signal analysis
+// ═══════════════════════════════════════════
+function analyze(klines) {
+  const cls = klines.map(k => k.close);
+  const n = cls.length;
+  const price = cls[n - 1];
 
-        const priceEl = document.getElementById('currentPrice');
-        if (newPrice < currentPriceValue && currentPriceValue !== 0) {
-            priceEl.className = 'price down';
-        } else {
-            priceEl.className = 'price';
-        }
-        
-        let displayPrice = newPrice > 10 ? newPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : newPrice.toFixed(6);
-        priceEl.innerText = '$' + displayPrice;
-        
-        currentPriceValue = newPrice;
-        return true;
-    } catch (e) {
-        console.error('Error fetching price', e);
-        document.getElementById('currentPrice').innerText = '데이터 없음';
-        return false;
-    }
+  // MA20
+  const ma20 = sma(cls, 20);
+  const maVal = ma20[n - 1];
+  const maDiff = maVal ? ((price - maVal) / maVal * 100) : 0;
+  const maSig = price > maVal ? 'BUY' : 'SELL';
+
+  // RSI
+  const rsiArr = rsi(cls, 14);
+  const rsiVal = rsiArr[n - 1];
+  const rsiSig = rsiVal <= 30 ? 'BUY' : rsiVal >= 70 ? 'SELL' : 'NEUTRAL';
+
+  // MACD
+  const { line: ml, sig: sl } = macd(cls);
+  const macdVal = ml[n - 1], sigVal = sl[n - 1];
+  const macdSig = (macdVal !== null && sigVal !== null)
+    ? (macdVal > sigVal ? 'BUY' : 'SELL') : 'NEUTRAL';
+
+  // Bollinger
+  const { up, lo, mid: bm } = bollinger(cls);
+  const bbUp = up[n - 1], bbLo = lo[n - 1];
+  const bbPct = (bbUp && bbLo && bbUp !== bbLo) ? ((price - bbLo) / (bbUp - bbLo) * 100) : 50;
+  const bbSig = price <= bbLo ? 'BUY' : price >= bbUp ? 'SELL' : 'NEUTRAL';
+
+  const sigs = [maSig, rsiSig, macdSig, bbSig];
+  const buyN  = sigs.filter(s => s === 'BUY').length;
+  const sellN = sigs.filter(s => s === 'SELL').length;
+  const overall = buyN >= 3 ? 'BUY' : sellN >= 3 ? 'SELL' : 'WAIT';
+
+  return {
+    price,
+    ma:   { sig: maSig,  val: maVal,   diff: maDiff },
+    rsi:  { sig: rsiSig, val: rsiVal },
+    macd: { sig: macdSig, val: macdVal, sigLine: sigVal },
+    bb:   { sig: bbSig,  up: bbUp, lo: bbLo, pct: bbPct },
+    buyN, sellN, overall,
+  };
 }
 
-// Analysis
-function analyzeInterval(data) {
-    const closes = data.closes;
-    const ma20 = calculateSMA(closes, 20);
-    const rsi14 = calculateRSI(closes, 14);
-    const macdData = calculateMACD(closes);
+// ═══════════════════════════════════════════
+//  Formatting
+// ═══════════════════════════════════════════
+const fmt = {
+  price: n => n == null || isNaN(n) ? '—' : '$' + Math.round(n).toLocaleString('en-US'),
+  num:   (n, d=2) => n == null || isNaN(n) ? '—' : (+n).toFixed(d),
+  macd:  v => {
+    if (v == null || isNaN(v)) return '—';
+    const s = v >= 0 ? '+' : '-', a = Math.abs(v);
+    if (a >= 1000) return s + '$' + (a / 1000).toFixed(2) + 'K';
+    if (a >= 1)    return s + '$' + a.toFixed(1);
+    return s + '$' + a.toFixed(3);
+  },
+  pct: (n, d=1) => n == null || isNaN(n) ? '—' : (n >= 0 ? '+' : '') + (+n).toFixed(d) + '%',
+};
 
-    const currentPrice = closes[closes.length - 1];
-    const currentMA = ma20[ma20.length - 1];
-    const currentRSI = rsi14[rsi14.length - 1];
-    const currentMACD = macdData.macd[macdData.macd.length - 1];
-    const currentSignal = macdData.signal[macdData.signal.length - 1];
+const TF = { '15m':'15분', '1h':'1시간', '4h':'4시간', '1d':'1일' };
+const sigTxt = { BUY:'★ 매수 진입', SELL:'★ 매도 청산', WAIT:'✋ 대기 관망' };
+const badgeTxt = { BUY:'매수', SELL:'매도', NEUTRAL:'중립' };
 
-    let score = 0;
-    
-    // RSI 보조지표
-    if (currentRSI < 30) score += 2; // 과매도
-    else if (currentRSI > 70) score -= 2; // 과매수
-    else if (currentRSI > 50) score += 1; // 강세
-    else score -= 1; // 약세
+// ═══════════════════════════════════════════
+//  Render
+// ═══════════════════════════════════════════
+function renderCard(tf, d) {
+  const el = document.getElementById(`card-${tf}`);
+  if (!el) return;
+  const { ma, rsi, macd, bb, buyN, sellN, overall, price } = d;
 
-    // MACD 보조지표
-    if (currentMACD > currentSignal) score += 1; // 골든크로스 / 상승세
-    else score -= 1; // 데드크로스 / 하락세
+  // RSI bar color
+  const rsiColor = rsi.val <= 30 ? 'var(--buy)' : rsi.val >= 70 ? 'var(--sell)' : 'var(--muted)';
+  const rsiW = Math.min(100, Math.max(0, rsi.val || 50));
 
-    // 이동평균선(MA20)
-    if (currentPrice > currentMA) score += 1; // 추세 상방
-    else score -= 1; // 추세 하방
+  // BB bar (clamped 0-100)
+  const bbW = Math.min(100, Math.max(0, bb.pct || 50));
+  const bbColor = bb.pct <= 15 ? 'var(--buy)' : bb.pct >= 85 ? 'var(--sell)' : 'var(--muted)';
 
-    let text = '관망';
-    let colorClass = 'signal-neutral';
-    if (score >= 3) { text = '강력 매수'; colorClass = 'signal-buy'; }
-    else if (score > 0) { text = '매수 우위'; colorClass = 'signal-buy'; }
-    else if (score <= -3) { text = '강력 매도'; colorClass = 'signal-sell'; }
-    else if (score < 0) { text = '매도 우위'; colorClass = 'signal-sell'; }
+  // MACD bar – show gap magnitude as % of |MACD value|
+  const macdAbove = macd.val > macd.sigLine;
 
-    return { score, text, colorClass, ma20, rsi14, macdData };
+  el.className = `tf-card signal-${overall}`;
+  el.innerHTML = `
+    <div class="card-head">
+      <div class="tf-label">${TF[tf]}</div>
+      <div class="card-price">${fmt.price(price)}</div>
+    </div>
+    <div class="card-body">
+
+      <div class="ind-row">
+        <div class="ind-left">
+          <span class="ind-name">MA20</span>
+          <div class="mini-bar-wrap">
+            <div class="mini-bar" style="width:${ma.diff >= 0 ? Math.min(100, 50 + ma.diff * 5) : Math.max(0, 50 + ma.diff * 5)}%;
+              background:${ma.sig === 'BUY' ? 'var(--buy)' : 'var(--sell)'}"></div>
+          </div>
+        </div>
+        <div class="ind-right">
+          <span class="ind-val">${fmt.price(ma.val)}&nbsp;<small style="color:${ma.diff >= 0 ? 'var(--buy)' : 'var(--sell)'}">(${fmt.pct(ma.diff)})</small></span>
+          <span class="badge badge-${ma.sig}">${badgeTxt[ma.sig]}</span>
+        </div>
+      </div>
+
+      <div class="ind-row">
+        <div class="ind-left">
+          <span class="ind-name">RSI(14)</span>
+          <div class="mini-bar-wrap">
+            <div class="mini-bar" style="width:${rsiW}%; background:${rsiColor}"></div>
+          </div>
+        </div>
+        <div class="ind-right">
+          <span class="ind-val">${fmt.num(rsi.val)}</span>
+          <span class="badge badge-${rsi.sig}">${badgeTxt[rsi.sig]}</span>
+        </div>
+      </div>
+
+      <div class="ind-row">
+        <div class="ind-left">
+          <span class="ind-name">MACD</span>
+          <div class="mini-bar-wrap">
+            <div class="mini-bar" style="width:${macdAbove ? 70 : 30}%;
+              background:${macd.sig === 'BUY' ? 'var(--buy)' : 'var(--sell)'}"></div>
+          </div>
+        </div>
+        <div class="ind-right">
+          <span class="ind-val">${fmt.macd(macd.val)}</span>
+          <span class="badge badge-${macd.sig}">${badgeTxt[macd.sig]}</span>
+        </div>
+      </div>
+
+      <div class="ind-row">
+        <div class="ind-left">
+          <span class="ind-name">볼린저</span>
+          <div class="mini-bar-wrap">
+            <div class="mini-bar" style="width:${bbW}%; background:${bbColor}"></div>
+          </div>
+        </div>
+        <div class="ind-right">
+          <span class="ind-val">${fmt.num(bb.pct, 1)}%B</span>
+          <span class="badge badge-${bb.sig}">${badgeTxt[bb.sig]}</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="card-foot">
+      <div class="sig-box ${overall}">
+        <div class="sig-lbl">${sigTxt[overall]}</div>
+        <div class="sig-score" style="color:${overall==='BUY'?'var(--buy)':overall==='SELL'?'var(--sell)':'var(--wait)'}">
+          매수 ${buyN}개 &nbsp;/&nbsp; 매도 ${sellN}개
+        </div>
+      </div>
+    </div>
+  `;
 }
 
-// Find local Min/Max for Inflection Points
-function findPeaksAndValleys(dataArray, windowSize = 5) {
-    let maxPts = [];
-    let minPts = [];
-    for (let i = windowSize; i < dataArray.length - windowSize; i++) {
-        if (dataArray[i] === null || isNaN(dataArray[i])) continue;
-        let isMax = true;
-        let isMin = true;
-        for (let j = 1; j <= windowSize; j++) {
-            if (dataArray[i] <= dataArray[i-j] || dataArray[i] <= dataArray[i+j]) isMax = false;
-            if (dataArray[i] >= dataArray[i-j] || dataArray[i] >= dataArray[i+j]) isMin = false;
-        }
-        if (isMax) maxPts.push({i, val: dataArray[i]});
-        if (isMin) minPts.push({i, val: dataArray[i]});
-    }
-    return { maxPts, minPts };
+function renderSkeleton(tf) {
+  const el = document.getElementById(`card-${tf}`);
+  if (!el) return;
+  el.className = 'tf-card';
+  el.innerHTML = `
+    <div class="card-head">
+      <div class="tf-label">${TF[tf]}</div>
+      <div class="ske" style="width:90px;height:18px;margin-top:5px"></div>
+    </div>
+    <div class="card-body">
+      ${['MA20','RSI(14)','MACD','볼린저'].map(n => `
+        <div class="ind-row">
+          <span class="ind-name" style="color:var(--muted)">${n}</span>
+          <div class="ske" style="width:70px;height:12px"></div>
+        </div>`).join('')}
+    </div>
+    <div class="card-foot">
+      <div class="ske" style="height:46px;border-radius:10px"></div>
+    </div>`;
 }
 
-// Charting
-function drawChart(interval) {
-    const canvas = document.getElementById('mainChart');
-    const ctx = canvas.getContext('2d');
-    
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    
-    const w = rect.width;
-    const h = rect.height;
-    
-    ctx.clearRect(0, 0, w, h);
-    
-    const d = chartData[interval];
-    if (!d) {
-        ctx.fillStyle = '#aaa';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('데이터를 불러올 수 없습니다.', w/2, h/2);
-        return;
-    }
+// ═══════════════════════════════════════════
+//  Data fetching
+// ═══════════════════════════════════════════
+const TFS = ['15m', '1h', '4h', '1d'];
+let timer = null, cdTimer = null, nextAt = 0, loading = false;
 
-    const highs = d.raw.highs;
-    const lows = d.raw.lows;
-    const closes = d.raw.closes;
-    const ma20 = d.analysis.ma20;
-    const rsi = d.analysis.rsi14;
-    const macd = d.analysis.macdData.macd;
-    const signalLine = d.analysis.macdData.signal;
-    
-    const minPrice = Math.min(...lows) * 0.995;
-    const maxPrice = Math.max(...highs) * 1.005;
-    
-    const drawLine = (dataArray, color, minV, maxV, heightRatio, yOffsetRatio, smooth = false) => {
-        ctx.beginPath();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        let started = false;
-        
-        const stepX = w / (Math.max(1, dataArray.length - 1));
-        const sectionH = h * heightRatio;
-        const offsetY = h * yOffsetRatio;
-        
-        for (let i = 0; i < dataArray.length; i++) {
-            const val = dataArray[i];
-            if (val === null || isNaN(val)) continue;
-            
-            const x = i * stepX;
-            const normY = (val - minV) / (maxV - minV || 1);
-            const y = offsetY + sectionH - (normY * sectionH);
-            
-            if (!started) {
-                ctx.moveTo(x, y);
-                started = true;
-            } else {
-                ctx.lineTo(x, y);
-            }
-        }
-        ctx.stroke();
-    };
-
-    const drawPointsText = (ptsArray, minV, maxV, heightRatio, yOffsetRatio, color, isMax) => {
-        ctx.fillStyle = color;
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'center';
-        
-        const stepX = w / (Math.max(1, closes.length - 1));
-        const sectionH = h * heightRatio;
-        const offsetY = h * yOffsetRatio;
-
-        let copy = [...ptsArray].sort((a,b) => isMax ? b.val - a.val : a.val - b.val).slice(0, 3);
-
-        copy.forEach(pt => {
-            const x = pt.i * stepX;
-            const normY = (pt.val - minV) / (maxV - minV || 1);
-            const y = offsetY + sectionH - (normY * sectionH);
-            
-            let displayVal = pt.val > 200 ? pt.val.toFixed(0) : pt.val.toFixed(4); // 4 decimals
-            ctx.fillText(displayVal, x, isMax ? y - 6 : y + 12);
-        });
-    };
-
-    // 1. Price
-    drawLine(closes, '#ffffff', minPrice, maxPrice, 0.55, 0);
-    drawLine(ma20, '#00ff88', minPrice, maxPrice, 0.55, 0);
-    const priceExtremes = findPeaksAndValleys(closes, 5);
-    drawPointsText(priceExtremes.maxPts, minPrice, maxPrice, 0.55, 0, '#ffffff', true);
-    drawPointsText(priceExtremes.minPts, minPrice, maxPrice, 0.55, 0, '#ffffff', false);
-    
-    // 2. RSI
-    const rsiOffset = 0.58;
-    const rsiH = 0.2;
-    drawLine(rsi, '#ff3366', 0, 100, rsiH, rsiOffset);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.setLineDash([4, 4]);
-    const rsiBaseY = h * rsiOffset;
-    const rsiActualH = h * rsiH;
-    ctx.beginPath(); ctx.moveTo(0, rsiBaseY + rsiActualH - (30/100*rsiActualH)); ctx.lineTo(w, rsiBaseY + rsiActualH - (30/100*rsiActualH)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, rsiBaseY + rsiActualH - (70/100*rsiActualH)); ctx.lineTo(w, rsiBaseY + rsiActualH - (70/100*rsiActualH)); ctx.stroke();
-    ctx.setLineDash([]);
-
-    const rsiExtremes = findPeaksAndValleys(rsi, 5);
-    drawPointsText(rsiExtremes.maxPts, 0, 100, rsiH, rsiOffset, '#ff3366', true);
-    drawPointsText(rsiExtremes.minPts, 0, 100, rsiH, rsiOffset, '#ff3366', false);
-    
-    // 3. MACD
-    const validMacd = macd.filter(n => n !== null && !isNaN(n));
-    const validSig = signalLine.filter(n => n !== null && !isNaN(n));
-    if (validMacd.length > 0) {
-        const maxMacd = Math.max(...validMacd, ...validSig) * 1.2;
-        const minMacd = Math.min(...validMacd, ...validSig) * 1.2;
-        const macdOffset = 0.8;
-        const macdH = 0.2;
-
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-        const zeroNormY = (0 - minMacd) / (maxMacd - minMacd || 1);
-        const zeroY = h * macdOffset + (h * macdH) - (zeroNormY * (h * macdH));
-        ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(w, zeroY); ctx.stroke();
-
-        drawLine(macd, '#ff9900', minMacd, maxMacd, macdH, macdOffset);
-        drawLine(signalLine, '#00ccff', minMacd, maxMacd, macdH, macdOffset);
-
-        const macdExtremes = findPeaksAndValleys(macd, 5);
-        drawPointsText(macdExtremes.maxPts, minMacd, maxMacd, macdH, macdOffset, '#ff9900', true);
-        drawPointsText(macdExtremes.minPts, minMacd, maxMacd, macdH, macdOffset, '#ff9900', false);
-    }
+async function fetchKlines(interval) {
+  const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=100`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json();
+  return d.map(k => ({ time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4] }));
 }
 
-async function updateAll() {
-    document.getElementById('coinTitle').innerText = `${coinName}/USDT 실시간 분석`;
-    document.getElementById('mainSignal').innerText = '분석 데이터 수집 중...';
-    document.getElementById('mainSignal').className = 'signal-box signal-neutral';
+async function fetchTicker() {
+  const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 
-    const priceSuccess = await fetchCurrentPrice();
-    if (!priceSuccess) {
-        document.getElementById('mainSignal').innerText = '해당 브라우저 정책(CORS) 또는 거래소 오류로 데이터를 가져올 수 없습니다.';
-        drawChart(currentActiveInterval);
-        return;
-    }
-    
-    let totalScore = 0;
-    
-    for (let intv of intervals) {
-        const data = await fetchKlineData(intv);
-        if (data) {
-            const analysis = analyzeInterval(data);
-            chartData[intv] = { raw: data, analysis };
-            totalScore += analysis.score;
-            
-            const el = document.getElementById(`sig-${intv}`);
-            el.innerText = analysis.text;
-            el.style.color = analysis.colorClass.includes('buy') ? '#00ff88' : (analysis.colorClass.includes('sell') ? '#ff3366' : '#aaaaaa');
-        } else {
-            chartData[intv] = null;
-            document.getElementById(`sig-${intv}`).innerText = '오류';
-        }
-    }
-    
-    let mainText = '관망 / 방향성 탐색';
-    let mainColorClass = 'signal-neutral';
-    if (totalScore >= 6) { mainText = '🚀 강력 매수 추천'; mainColorClass = 'signal-buy'; }
-    else if (totalScore > 0) { mainText = '📈 상승 추세 (매수 우위)'; mainColorClass = 'signal-buy'; }
-    else if (totalScore <= -6) { mainText = '💣 강력 매도 추천'; mainColorClass = 'signal-sell'; }
-    else if (totalScore < 0) { mainText = '📉 하락 추세 (매도 우위)'; mainColorClass = 'signal-sell'; }
-    
-    const mainBox = document.getElementById('mainSignal');
-    mainBox.className = `signal-box ${mainColorClass}`;
-    mainBox.innerText = mainText;
-    
+async function loadData() {
+  if (loading) return;
+  loading = true;
+
+  document.getElementById('errBox').style.display = 'none';
+  document.getElementById('updateTime').innerHTML = '<span class="spinner"></span> 로딩 중...';
+  TFS.forEach(renderSkeleton);
+
+  try {
+    const [ticker, ...kls] = await Promise.all([
+      fetchTicker(),
+      ...TFS.map(tf => fetchKlines(tf)),
+    ]);
+
+    const price = parseFloat(ticker.lastPrice);
+    const chg   = parseFloat(ticker.priceChangePercent);
+
+    document.getElementById('priceMain').textContent = fmt.price(price);
+    const pc = document.getElementById('priceChange');
+    pc.textContent = `${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(2)}%`;
+    pc.className = 'pchip ' + (chg > 0.05 ? 'up' : chg < -0.05 ? 'down' : 'flat');
+
+    TFS.forEach((tf, i) => renderCard(tf, analyze(kls[i])));
+
     const now = new Date();
-    document.getElementById('refreshTime').innerText = `마지막 업데이트: ${now.toLocaleTimeString()}`;
-    
-    drawChart(currentActiveInterval);
+    document.getElementById('updateTime').textContent =
+      `마지막 갱신: ${now.toLocaleTimeString('ko-KR')}`;
+
+    schedNext();
+  } catch (e) {
+    const eb = document.getElementById('errBox');
+    eb.style.display = 'block';
+    eb.textContent = `⚠️ 데이터 로딩 실패: ${e.message} — 15초 후 재시도`;
+    document.getElementById('updateTime').textContent = '갱신 실패';
+    setTimeout(loadData, 15000);
+  } finally {
+    loading = false;
+  }
 }
 
-document.querySelectorAll('#chartTabs .tab').forEach(tab => {
-    tab.addEventListener('click', (e) => {
-        document.querySelectorAll('#chartTabs .tab').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        currentActiveInterval = e.target.getAttribute('data-interval');
-        drawChart(currentActiveInterval);
-    });
-});
+function schedNext() {
+  if (timer) clearTimeout(timer);
+  if (cdTimer) clearInterval(cdTimer);
+  nextAt = Date.now() + 60000;
+  timer = setTimeout(loadData, 60000);
+  cdTimer = setInterval(() => {
+    const s = Math.max(0, Math.round((nextAt - Date.now()) / 1000));
+    document.getElementById('countdown').textContent = `(${s}초 후 자동 갱신)`;
+    if (s === 0) clearInterval(cdTimer);
+  }, 1000);
+}
 
-document.querySelectorAll('#coinTabs .tab').forEach(tab => {
-    tab.addEventListener('click', (e) => {
-        document.querySelectorAll('#coinTabs .tab').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        currentSymbol = e.target.getAttribute('data-symbol');
-        currentExchange = e.target.getAttribute('data-exchange');
-        coinName = e.target.getAttribute('data-name');
-        
-        chartData = {};
-        document.getElementById('currentPrice').innerText = '로딩중...';
-        intervals.forEach(intv => document.getElementById(`sig-${intv}`).innerText = '-');
-        
-        clearInterval(refreshTimer);
-        updateAll();
-        refreshTimer = setInterval(updateAll, 30000);
-    });
-});
+function doRefresh() {
+  if (timer) clearTimeout(timer);
+  if (cdTimer) clearInterval(cdTimer);
+  document.getElementById('countdown').textContent = '';
+  loadData();
+}
 
-window.addEventListener('resize', () => {
-    drawChart(currentActiveInterval);
-});
-
-// Start loop
-updateAll();
-refreshTimer = setInterval(updateAll, 30000);
-
+// Boot
+loadData();
 </script>
 </body>
 </html>
